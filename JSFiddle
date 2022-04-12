@@ -1,0 +1,170 @@
+#### HTML
+<script
+  src="https://code.jquery.com/jquery-3.4.1.min.js"
+  integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+  crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/fhirclient/build/fhir-client.js"></script>
+
+<pre id='pre'></pre>
+
+<table id="table">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>PHQ-9 Score</th>
+      <th>Date</th>
+    </tr>
+  </thead>
+  <button id="btnAddPHQ9">Add PHQ-9 Score</button>
+  <button id="btnRefreshPHQ9">Refresh PHQ-9 Scores</button>
+  <br />
+  <tbody id="questionnaireResponse">
+    
+  </tbody>
+</table>
+
+#### CSS
+body {
+  font-family: Helvetica;
+}
+
+#json {
+  width:100%;
+  height:200px;
+}
+
+#inputarea {
+  display:inline-block;
+  vertical-align:top;
+  width:45%;
+  margin:2%;
+}
+
+#table {
+  width:45%;
+  display:inline-block;  
+  vertical-align:top;
+}
+
+#table tr td, #table tr th {
+  padding:2px 5px;
+  border:1px solid black;
+}
+
+#### JavaScript (no library)
+function handleExample(data) {
+	console.log(data);
+}
+function runExample() {
+  client.request("questionnaireResponse").then(handleExample).catch(console.error);
+}
+
+const FHIRURL = "https://r3.smarthealthit.org";
+const client = FHIR.client(FHIRURL);
+console.clear();
+runExample();
+
+
+function updatePHQ9(id) {
+	var phq9 = prompt("New PHQ-9 Score?");
+  if (typeof phq9!="undefined" && !!phq9 && phq9!="") {
+    var id = $(this)[0].id;
+    var json = {
+    	//// Note what happens in the console if we leave out this id:
+    	"id": id,
+      "resourceType": "questionnaireResponse",
+      "PHQ-9": {
+        "Score": [phq9],
+        "Date": "MM-DD-YYYY"
+      },
+    };
+
+		$.ajax({
+    	//// PUT is used to UPDATE
+      type: "PUT",
+      url: FHIRURL+'/questionnaireResponse/'+id,
+      success: function (data) {
+        showPHQ9();
+      },
+      data: JSON.stringify(json),
+      datatype: 'json',
+      contentType: 'application/json+fhir;charset=utf-8'
+    });
+  }
+}
+
+function deletePHQ9(id) {
+  var id = $(this)[0].id;
+  $.ajax({
+    type: "DELETE",
+    url: FHIRURL+'/questionnaireResponse/'+id,
+    success: function (data) {
+    	showPHQ9();
+    },
+  });
+}
+
+function addPHQ9() {
+  var json = {
+    "resourceType": "questionnaireResponse",
+    "PHQ-9": {
+      "Score": ["16"],
+      "Date": "MM-DD-YYYY"
+    },
+  };
+
+  $.ajax({
+  	//// POST is used to CREATE
+    type: "POST",
+    url: FHIRURL+'/questionnaireResponse',
+    headers: {
+  //    "Authorization":"Bearer "+$scope.token
+    },
+    data: JSON.stringify(json),
+    success: function (data) {
+    	alert("Request submitted. For some reason, this demo server can take a while to process create and delete, but read and update operations are faster.");
+		},
+    error: function(er) {
+      console.log(er);
+    },
+    datatype: 'json',
+    contentType: 'application/json+fhir;charset=utf-8'
+  });
+}
+
+
+function handleData(data) {
+  $("#questionnaireResponse").html("");
+	for (var d in data.entry) {
+  	try {
+      console.log(data.entry[d]);
+      var tr = $("<tr>");
+      tr.append($("<td>").html(data.entry[d].resource.id));
+      tr.append($("<td>").html(data.entry[d].resource.value[0]));
+      tr.append($("<td>").html(data.entry[d].resource.dateTime[0]));
+      var a = $("<a>").attr("href","javascript:;").html("[X]").on("click", deletePHQ9.bind({id:data.entry[d].resource.id}) );
+      tr.append($("<td>").append(a));
+      var r = $("<a>").attr("href","javascript:;").html("[R]").on("click", updatePHQ9.bind({id:data.entry[d].resource.id}) );
+      tr.append($("<td>").append(r));
+      $("#questionnaireResponse").append(tr);
+    } catch(er) {
+    	// We're just putting it in a try-block in case there's an error with the data.
+      // The server takes some time to process these changes
+      // , so deletes and adds may not be properly reflected for a few minutes.
+    }
+  }
+}
+
+function showPHQ9() {
+  client.request("questionnaireResponse?score=16").then(handleData).catch(console.error);
+}
+
+// Note: this URL requires no authentication
+$("#btnRefreshPHQ9").on("click", showPHQ9);
+$("#btnAddPHQ9").on("click", addPHQ9);
+showPHQ9();
+
+
+
+
+
